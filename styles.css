@@ -462,6 +462,10 @@ summary:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.public-guest-data {
+  margin-bottom: 12px;
+}
+
 .pill {
   min-height: 28px;
   border-radius: 999px;
@@ -518,6 +522,16 @@ summary:focus-visible {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.link-actions .btn {
+  width: 100%;
 }
 
 .reservation-form {
@@ -597,20 +611,6 @@ summary:focus-visible {
   margin-top: 3px;
   color: var(--muted);
   font-size: 13px;
-}
-
-.link-meta {
-  border-radius: 4px;
-  padding: 10px;
-  display: grid;
-  gap: 4px;
-  background: #ebece6;
-}
-
-.link-meta strong {
-  color: var(--brand);
-  font-size: 13px;
-  overflow-wrap: anywhere;
 }
 
 .guest-page {

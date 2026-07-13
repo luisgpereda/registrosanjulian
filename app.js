@@ -38,6 +38,7 @@ const state = {
   authError: "",
   dataError: "",
   propertyId: null,
+  editingGuestId: null,
 };
 
 const reservations = [];
@@ -200,11 +201,11 @@ function buildBirthDate(data) {
   return isValid ? `${year}-${padDatePart(month)}-${padDatePart(day)}` : "";
 }
 
-function yearOptions() {
+function yearOptions(selectedYear = "") {
   const currentYear = new Date().getFullYear();
   const years = [];
   for (let year = currentYear; year >= currentYear - 110; year -= 1) {
-    years.push(`<option value="${year}">${year}</option>`);
+    years.push(`<option value="${year}"${selectedAttr(year, selectedYear)}>${year}</option>`);
   }
   return years.join("");
 }
@@ -238,6 +239,15 @@ function escapeHtml(value = "") {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function selectedAttr(value, currentValue) {
+  return String(value) === String(currentValue || "") ? " selected" : "";
+}
+
+function birthDateParts(value = "") {
+  const [year = "", month = "", day = ""] = String(value).split("-");
+  return { year, month: Number(month) || "", day: Number(day) || "" };
 }
 
 function guestLink(tab = "register") {
@@ -328,15 +338,55 @@ function mapReservationFromRow(row) {
 
 function mapPublicReservation(payload) {
   const reservationData = payload.reservation;
-  const mappedGuests = (payload.guests || []).map((guest) => ({
-    id: guest.position,
-    rowId: guest.id,
-    label: `Huésped ${guest.position}`,
-    complete: Boolean(guest.complete),
-    name: guest.complete ? guest.fullName : "",
-    documentType: guest.documentType || "",
-    details: null,
-  }));
+  const mappedGuests = (payload.guests || []).map((guest) => {
+    const documentType = guest.documentType || guest.document_type || "";
+    const documentNumber = guest.documentNumber || guest.document_number || "";
+    const fullName =
+      guest.fullName ||
+      guest.full_name ||
+      [guest.name, guest.surname, guest.secondSurname || guest.second_surname].filter(Boolean).join(" ");
+    const hasDetails = Boolean(
+      guest.name ||
+        guest.surname ||
+        guest.secondSurname ||
+        guest.second_surname ||
+        guest.sex ||
+        documentNumber ||
+        guest.nationality ||
+        guest.birthDate ||
+        guest.birth_date ||
+        guest.address ||
+        guest.phone ||
+        guest.email,
+    );
+    const details = hasDetails
+      ? {
+          name: guest.name || "",
+          surname: guest.surname || "",
+          secondSurname: guest.secondSurname || guest.second_surname || "",
+          fullName,
+          sex: guest.sex || "",
+          documentType,
+          documentNumber,
+          documentLabel: `${documentType || "Documento"}${documentNumber ? ` · ${documentNumber}` : ""}`,
+          nationality: guest.nationality || "",
+          birthDate: guest.birthDate || guest.birth_date || "",
+          address: guest.address || "",
+          phone: guest.phone || "",
+          email: guest.email || "",
+        }
+      : null;
+
+    return {
+      id: guest.position,
+      rowId: guest.id,
+      label: `Huésped ${guest.position}`,
+      complete: Boolean(guest.complete),
+      name: guest.complete ? fullName : "",
+      documentType,
+      details,
+    };
+  });
   const reservation = {
     id: reservationData.id,
     groupName: reservationData.groupName || "",
@@ -401,6 +451,7 @@ function applyReservation(reservation) {
   property.checkOut = reservation.checkOut;
   guests.splice(0, guests.length, ...cloneGuests(reservation.guests));
   state.activeReservationId = reservation.id;
+  state.editingGuestId = null;
   const nextPending = guests.find((guest) => !guest.complete);
   state.openGuestId = nextPending ? nextPending.id : null;
 }
@@ -506,6 +557,14 @@ async function loadPublicReservation(publicSlug) {
   }
 
   const mapped = mapPublicReservation(data);
+  mapped.reservation.guests.forEach((guest) => {
+    const currentGuest = guests.find((item) => item.id === guest.id);
+    if (currentGuest?.details && !guest.details) {
+      guest.details = { ...currentGuest.details };
+      guest.name = currentGuest.name;
+      guest.documentType = currentGuest.documentType;
+    }
+  });
   applyPropertyFromRow(mapped.property);
   const index = reservations.findIndex((reservation) => reservation.id === mapped.reservation.id);
   if (index >= 0) {
@@ -641,14 +700,39 @@ function openGuestLink(tab = "register") {
   window.open(guestLink(tab), "_blank", "noopener");
 }
 
+async function copyGuestLink(tab = "register") {
+  if (!property.stayToken) return;
+  const link = guestLink(tab);
+  try {
+    await navigator.clipboard.writeText(link);
+    window.alert("Link copiado.");
+  } catch (_) {
+    window.prompt("Copia este link:", link);
+  }
+}
+
 function toggleGuest(id) {
   state.openGuestId = state.openGuestId === id ? null : id;
+  if (state.openGuestId !== id) state.editingGuestId = null;
+  render();
+}
+
+function editGuest(id) {
+  state.openGuestId = id;
+  state.editingGuestId = id;
+  render();
+}
+
+function cancelGuestEdit(id) {
+  state.editingGuestId = null;
+  state.openGuestId = id;
   render();
 }
 
 async function completeGuest(id, form) {
   const data = new FormData(form);
   const guest = guests.find((item) => item.id === id);
+  const wasEditing = state.editingGuestId === id;
   const birthDate = buildBirthDate(data);
   if (!birthDate) {
     window.alert("Revisa la fecha de nacimiento.");
@@ -667,6 +751,12 @@ async function completeGuest(id, form) {
     phone: data.get("phone") || "",
     email: data.get("email") || "",
   };
+  details.fullName =
+    [details.name, details.surname, details.secondSurname]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || guest.label;
+  details.documentLabel = `${details.documentType}${details.documentNumber ? ` · ${details.documentNumber}` : ""}`;
 
   if (hasBackend()) {
     const reservation = activeReservation();
@@ -691,49 +781,35 @@ async function completeGuest(id, form) {
       window.alert(`No se pudo guardar el registro: ${error.message}`);
       return;
     }
+    guest.complete = true;
+    guest.name = details.fullName;
+    guest.documentType = details.documentType;
+    guest.details = details;
     await refreshActivePublicReservation();
-    if (allComplete()) state.tab = "access";
+    state.editingGuestId = null;
+    if (wasEditing) {
+      state.tab = "register";
+      state.openGuestId = id;
+    } else if (allComplete()) {
+      state.tab = "access";
+    }
     render();
     return;
   }
 
-  details.fullName =
-    [details.name, details.surname, details.secondSurname]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || guest.label;
-  details.documentLabel = `${details.documentType}${details.documentNumber ? ` · ${details.documentNumber}` : ""}`;
   guest.complete = true;
   guest.name = details.fullName;
   guest.documentType = details.documentType;
   guest.details = details;
-  const nextPending = guests.find((item) => !item.complete);
-  state.openGuestId = nextPending ? nextPending.id : null;
-  if (allComplete()) state.tab = "access";
+  state.editingGuestId = null;
+  if (wasEditing) {
+    state.openGuestId = id;
+  } else {
+    const nextPending = guests.find((item) => !item.complete);
+    state.openGuestId = nextPending ? nextPending.id : null;
+    if (allComplete()) state.tab = "access";
+  }
   syncActiveReservation();
-  render();
-}
-
-function resetDemo() {
-  const demoReservation = {
-    id: "res_demo",
-    groupName: "Reserva Demo",
-    bookingRef: "Reserva Demo · 14 ago - 18 ago · 4 huesp.",
-    stayToken: "demo_estancia_publica",
-    tokenCreatedAt: "2026-07-12T10:00",
-    tokenExpiresAt: "2026-08-18T11:00",
-    checkIn: "2026-08-14T16:00",
-    checkOut: "2026-08-18T11:00",
-    guests: Array.from({ length: 4 }, (_, index) => createGuest(index + 1)),
-  };
-  reservations.splice(0, reservations.length, demoReservation);
-  applyReservation(demoReservation);
-  property.name = "Registro de huéspedes";
-  property.location = "";
-  property.notes = "";
-  state.tab = "register";
-  state.view = "host";
-  window.location.hash = "host";
   render();
 }
 
@@ -824,7 +900,6 @@ function hostShell(content) {
         <div class="hero-top">
           <div class="brand"><span class="brand-logo-frame"><img src="./assets/logo.png" alt="" /></span><span>${propertyName}</span></div>
           <div class="toolbar">
-            ${property.stayToken ? `<button class="btn ghost" onclick="openGuestLink('register')">Vista huésped</button>` : ""}
             ${state.authUser ? `<button class="btn ghost" onclick="logoutHost()">Salir</button>` : ""}
           </div>
         </div>
@@ -929,7 +1004,6 @@ function hostView() {
           <p class="muted">Una única estancia genera un único link compartido para que los ${guests.length} huéspedes rellenen sus datos.</p>
         </div>
         <div class="toolbar">
-          <button class="btn" onclick="resetDemo()">Reiniciar demo</button>
           <button class="btn primary" onclick="openGuestLink('register')">Abrir registro</button>
         </div>
       </div>
@@ -958,11 +1032,9 @@ function hostView() {
           <span>Enlace de check-in</span>
           <code>${guestLink()}</code>
         </div>
-        <div class="link-meta">
-          <span>Token efímero</span>
-          <strong>${property.stayToken}</strong>
+        <div class="link-actions">
+          <button class="btn primary" onclick="copyGuestLink('register')">Copiar link</button>
         </div>
-        <p>Creado el ${formatDate(property.tokenCreatedAt)} y válido hasta la salida, ${formatDate(property.tokenExpiresAt)}. En una versión con backend, el token se guardaría cifrado, sería revocable y caducaría automáticamente.</p>
       </div>
     </section>
   `);
@@ -1125,6 +1197,7 @@ function guestRegister() {
 
 function guestAccordion(guest) {
   const open = state.openGuestId === guest.id;
+  const editing = state.editingGuestId === guest.id;
   return `
     <article class="guest-accordion ${guest.complete ? "complete" : ""}">
       <button class="accordion-trigger" onclick="toggleGuest(${guest.id})" aria-expanded="${open}">
@@ -1137,7 +1210,7 @@ function guestAccordion(guest) {
       </button>
       ${
         open
-          ? guest.complete
+          ? guest.complete && !editing
             ? completedGuestBody(guest)
             : guestForm(guest)
           : ""
@@ -1147,97 +1220,124 @@ function guestAccordion(guest) {
 }
 
 function completedGuestBody(guest) {
+  const details = guest.details || {
+    fullName: guest.name,
+    documentLabel: guest.documentType,
+  };
   return `
     <div class="accordion-body">
       <div class="saved-card">
         <strong>Registro completado</strong>
         <span>${guest.name} · ${guest.documentType}</span>
       </div>
+      <div class="guest-data-grid public-guest-data">
+        ${hostGuestFields
+          .map(
+            ([label, key]) => `
+              <div>
+                <span>${label}</span>
+                <strong>${escapeHtml(details[key] || "No indicado")}</strong>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+      <button class="btn full-width" onclick="editGuest(${guest.id})">Editar datos</button>
     </div>
   `;
 }
 
 function guestForm(guest) {
+  const details = guest.details || {};
+  const birthDate = birthDateParts(details.birthDate);
   return `
     <form class="accordion-body form-grid" onsubmit="event.preventDefault(); completeGuest(${guest.id}, this);">
       <div class="field">
         <label>Nombre</label>
-        <input name="name" required autocomplete="given-name" />
+        <input name="name" required autocomplete="given-name" value="${escapeHtml(details.name || "")}" />
       </div>
       <div class="field">
         <label>Primer apellido</label>
-        <input name="surname" required autocomplete="family-name" />
+        <input name="surname" required autocomplete="family-name" value="${escapeHtml(details.surname || "")}" />
       </div>
       <div class="field">
         <label>Segundo apellido</label>
-        <input name="secondSurname" autocomplete="additional-name" />
+        <input name="secondSurname" autocomplete="additional-name" value="${escapeHtml(details.secondSurname || "")}" />
       </div>
       <div class="field">
         <label>Sexo</label>
         <select name="sex" required>
           <option value="">Seleccionar</option>
-          <option>Mujer</option>
-          <option>Hombre</option>
-          <option>Otro / no especificado</option>
+          <option${selectedAttr("Mujer", details.sex)}>Mujer</option>
+          <option${selectedAttr("Hombre", details.sex)}>Hombre</option>
+          <option${selectedAttr("Otro / no especificado", details.sex)}>Otro / no especificado</option>
         </select>
       </div>
       <div class="field">
         <label>Tipo de documento</label>
         <select name="documentType" required>
-          <option>DNI</option>
-          <option>Pasaporte</option>
-          <option>TIE</option>
+          <option${selectedAttr("DNI", details.documentType || "DNI")}>DNI</option>
+          <option${selectedAttr("Pasaporte", details.documentType)}>Pasaporte</option>
+          <option${selectedAttr("TIE", details.documentType)}>TIE</option>
         </select>
       </div>
       <div class="field">
         <label>Número de documento</label>
-        <input name="documentNumber" required autocomplete="off" />
+        <input name="documentNumber" required autocomplete="off" value="${escapeHtml(details.documentNumber || "")}" />
       </div>
       <div class="field">
         <label>Nacionalidad</label>
-        <input name="nationality" required autocomplete="country-name" />
+        <input name="nationality" required autocomplete="country-name" value="${escapeHtml(details.nationality || "")}" />
       </div>
       <div class="field full">
         <label>Fecha de nacimiento</label>
         <div class="date-parts" role="group" aria-label="Fecha de nacimiento">
           <select name="birthDay" required aria-label="Día de nacimiento">
             <option value="">Día</option>
-            ${Array.from({ length: 31 }, (_, index) => `<option value="${index + 1}">${index + 1}</option>`).join("")}
+            ${Array.from(
+              { length: 31 },
+              (_, index) => `<option value="${index + 1}"${selectedAttr(index + 1, birthDate.day)}>${index + 1}</option>`,
+            ).join("")}
           </select>
           <select name="birthMonth" required aria-label="Mes de nacimiento">
             <option value="">Mes</option>
-            <option value="1">Enero</option>
-            <option value="2">Febrero</option>
-            <option value="3">Marzo</option>
-            <option value="4">Abril</option>
-            <option value="5">Mayo</option>
-            <option value="6">Junio</option>
-            <option value="7">Julio</option>
-            <option value="8">Agosto</option>
-            <option value="9">Septiembre</option>
-            <option value="10">Octubre</option>
-            <option value="11">Noviembre</option>
-            <option value="12">Diciembre</option>
+            <option value="1"${selectedAttr(1, birthDate.month)}>Enero</option>
+            <option value="2"${selectedAttr(2, birthDate.month)}>Febrero</option>
+            <option value="3"${selectedAttr(3, birthDate.month)}>Marzo</option>
+            <option value="4"${selectedAttr(4, birthDate.month)}>Abril</option>
+            <option value="5"${selectedAttr(5, birthDate.month)}>Mayo</option>
+            <option value="6"${selectedAttr(6, birthDate.month)}>Junio</option>
+            <option value="7"${selectedAttr(7, birthDate.month)}>Julio</option>
+            <option value="8"${selectedAttr(8, birthDate.month)}>Agosto</option>
+            <option value="9"${selectedAttr(9, birthDate.month)}>Septiembre</option>
+            <option value="10"${selectedAttr(10, birthDate.month)}>Octubre</option>
+            <option value="11"${selectedAttr(11, birthDate.month)}>Noviembre</option>
+            <option value="12"${selectedAttr(12, birthDate.month)}>Diciembre</option>
           </select>
           <select name="birthYear" required aria-label="Año de nacimiento">
             <option value="">Año</option>
-            ${yearOptions()}
+            ${yearOptions(birthDate.year)}
           </select>
         </div>
       </div>
       <div class="field full">
         <label>Residencia habitual</label>
-        <input name="address" required placeholder="Dirección completa, localidad y país" autocomplete="street-address" />
+        <input name="address" required placeholder="Dirección completa, localidad y país" autocomplete="street-address" value="${escapeHtml(details.address || "")}" />
       </div>
       <div class="field">
         <label>Teléfono móvil</label>
-        <input name="phone" required type="tel" autocomplete="tel" />
+        <input name="phone" required type="tel" autocomplete="tel" value="${escapeHtml(details.phone || "")}" />
       </div>
       <div class="field">
         <label>Email</label>
-        <input name="email" required type="email" autocomplete="email" />
+        <input name="email" required type="email" autocomplete="email" value="${escapeHtml(details.email || "")}" />
       </div>
-      <button class="btn primary full-width" type="submit">Guardar ${guest.label}</button>
+      ${
+        guest.complete
+          ? `<button class="btn full-width" type="button" onclick="cancelGuestEdit(${guest.id})">Cancelar</button>`
+          : ""
+      }
+      <button class="btn primary full-width" type="submit">${guest.complete ? "Guardar cambios" : `Guardar ${guest.label}`}</button>
     </form>
   `;
 }
@@ -1344,9 +1444,11 @@ function render() {
 
 window.route = route;
 window.openGuestLink = openGuestLink;
+window.copyGuestLink = copyGuestLink;
 window.toggleGuest = toggleGuest;
+window.editGuest = editGuest;
+window.cancelGuestEdit = cancelGuestEdit;
 window.completeGuest = completeGuest;
-window.resetDemo = resetDemo;
 window.createReservation = createReservation;
 window.switchReservation = switchReservation;
 window.deleteReservation = deleteReservation;

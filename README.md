@@ -21,7 +21,7 @@ http://localhost:5174
 ## Pantallas incluidas
 
 - Panel privado del arrendador para una única propiedad.
-- Link único demo por estancia para cuatro huéspedes.
+- Link único por estancia para los huéspedes.
 - Registro móvil con un desplegable por huésped.
 - Huéspedes marcados en verde cuando completan datos.
 - Pestaña dedicada de acceso con instrucciones y FAQ, desbloqueada solo cuando todos están en verde.
