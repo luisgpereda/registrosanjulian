@@ -6,9 +6,9 @@ const SUPABASE_ANON_KEY =
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const DEFAULT_PROPERTY = {
-  name: "Hacienda San Julian",
+  name: "Hacienda San Julián",
   location: "Lorca, Murcia",
-  notes: "Alojamiento de San Julian.",
+  notes: "Alojamiento de San Julián.",
   map_url: null,
   route_video_url: null,
 };
@@ -47,10 +47,10 @@ window.guests = guests;
 window.reservations = reservations;
 
 const faqs = [
-  ["Hora de entrada", "La entrada esta disponible desde las 16:00."],
-  ["Hora de salida", "La salida es antes de las 11:00. Dejad las llaves segun las instrucciones del anfitrion."],
-  ["Zonas privadas", "Las zonas privadas del alojamiento quedan indicadas por el anfitrion antes de la llegada."],
-  ["Contacto", "Para cualquier cosa, contactad con el anfitrion por el canal acordado."],
+  ["Hora de entrada", "La entrada está disponible desde las 16:00."],
+  ["Hora de salida", "La salida es antes de las 11:00. Dejad las llaves según las instrucciones del anfitrión."],
+  ["Zonas privadas", "Las zonas privadas del alojamiento quedan indicadas por el anfitrión antes de la llegada."],
+  ["Contacto", "Para cualquier cosa, contactad con el anfitrión por el canal acordado."],
 ];
 
 const accessLinks = {
@@ -60,19 +60,19 @@ const accessLinks = {
 
 const accessSections = [
   {
-    title: "Ubicacion y entrada al campo",
+    title: "Ubicación y entrada al campo",
     items: [
       {
         label: "Entrada al camino",
-        text: "Seguid las indicaciones compartidas por el anfitrion para llegar al acceso principal.",
+        text: "Seguid las indicaciones compartidas por el anfitrión para llegar al acceso principal.",
       },
       {
         label: "Coordenadas",
         text: "Coordenadas disponibles en la reserva real.",
       },
       {
-        label: "Direccion de la casa",
-        text: "Direccion disponible en la reserva real.",
+        label: "Dirección de la casa",
+        text: "Dirección disponible en la reserva real.",
       },
     ],
   },
@@ -85,11 +85,11 @@ const accessSections = [
       },
       {
         label: "Ultimo giro",
-        text: "Confirmad el ultimo tramo con el anfitrion si teneis dudas.",
+        text: "Confirmad el último tramo con el anfitrión si tenéis dudas.",
       },
       {
         label: "Llegada",
-        text: "Aparcad en la zona indicada para huespedes.",
+        text: "Aparcad en la zona indicada para huéspedes.",
       },
     ],
   },
@@ -98,7 +98,7 @@ const accessSections = [
     items: [
       {
         label: "Aparcamiento",
-        text: "Usad la zona de aparcamiento indicada por el anfitrion.",
+        text: "Usad la zona de aparcamiento indicada por el anfitrión.",
       },
       {
         label: "Puerta de acceso",
@@ -115,7 +115,7 @@ const accessSections = [
     items: [
       {
         label: "Jardin",
-        text: "Usad solo las zonas exteriores habilitadas para huespedes.",
+        text: "Usad solo las zonas exteriores habilitadas para huéspedes.",
       },
       {
         label: "Cuidado exterior",
@@ -123,11 +123,11 @@ const accessSections = [
       },
       {
         label: "Ropa de casa",
-        text: "Las camas quedan hechas y encima encontrareis un juego de toallas para cada persona y otra toalla para la piscina.",
+        text: "Las camas quedan hechas y encima encontraréis un juego de toallas para cada persona y otra toalla para la piscina.",
       },
       {
         label: "Zonas disponibles",
-        text: "Las zonas no disponibles estaran cerradas o senalizadas.",
+        text: "Las zonas no disponibles estarán cerradas o señalizadas.",
       },
     ],
   },
@@ -136,7 +136,7 @@ const accessSections = [
     items: [
       {
         label: "Entrega de llaves",
-        text: "Al salir, dejad las llaves segun las instrucciones del anfitrion.",
+        text: "Al salir, dejad las llaves según las instrucciones del anfitrión.",
       },
       {
         label: "Telefono y WhatsApp",
@@ -153,7 +153,7 @@ const hostGuestFields = [
   ["Nacionalidad", "nationality"],
   ["Fecha de nacimiento", "birthDate"],
   ["Residencia habitual", "address"],
-  ["Telefono movil", "phone"],
+  ["Teléfono móvil", "phone"],
   ["Email", "email"],
 ];
 
@@ -248,7 +248,7 @@ function guestLink(tab = "register") {
 function createGuest(id) {
   return {
     id,
-    label: `Huesped ${id}`,
+    label: `Huésped ${id}`,
     complete: false,
     name: "",
     documentType: "",
@@ -279,7 +279,7 @@ function defaultDateTimeInput(daysFromNow = 0, hour = 16) {
 }
 
 function mapGuestFromRow(row) {
-  const fullName = row.full_name || `Huesped ${row.position}`;
+  const fullName = row.full_name || `Huésped ${row.position}`;
   const documentType = row.document_type || "";
   const details = row.complete
     ? {
@@ -302,7 +302,7 @@ function mapGuestFromRow(row) {
   return {
     id: row.position,
     rowId: row.id,
-    label: `Huesped ${row.position}`,
+    label: `Huésped ${row.position}`,
     complete: Boolean(row.complete),
     name: row.complete ? fullName : "",
     documentType,
@@ -331,7 +331,7 @@ function mapPublicReservation(payload) {
   const mappedGuests = (payload.guests || []).map((guest) => ({
     id: guest.position,
     rowId: guest.id,
-    label: `Huesped ${guest.position}`,
+    label: `Huésped ${guest.position}`,
     complete: Boolean(guest.complete),
     name: guest.complete ? guest.fullName : "",
     documentType: guest.documentType || "",
@@ -545,7 +545,7 @@ async function deleteReservation(id) {
   const reservationIndex = reservations.findIndex((reservation) => reservation.id === id);
   if (reservationIndex === -1) return;
   const reservation = reservations[reservationIndex];
-  const confirmed = window.confirm(`Borrar la reserva ${reservation.bookingRef}? Esta accion quitara tambien su link efimero.`);
+  const confirmed = window.confirm(`¿Borrar la reserva ${reservation.bookingRef}? Esta acción quitará también su link efímero.`);
   if (!confirmed) return;
 
   if (hasBackend() && state.authUser) {
@@ -728,7 +728,7 @@ function resetDemo() {
   };
   reservations.splice(0, reservations.length, demoReservation);
   applyReservation(demoReservation);
-  property.name = "Registro de huespedes";
+  property.name = "Registro de huéspedes";
   property.location = "";
   property.notes = "";
   state.tab = "register";
@@ -777,7 +777,7 @@ async function createReservation(form) {
     }));
     const { error: guestsError } = await supabaseClient.from("guests").insert(guestRows);
     if (guestsError) {
-      window.alert(`La reserva se creo, pero no se pudieron crear los huespedes: ${guestsError.message}`);
+      window.alert(`La reserva se creó, pero no se pudieron crear los huéspedes: ${guestsError.message}`);
       return;
     }
 
@@ -816,7 +816,7 @@ async function createReservation(form) {
 }
 
 function hostShell(content) {
-  const propertyName = property.name || "Registro de huespedes";
+  const propertyName = property.name || "Registro de huéspedes";
   const heroMeta = [property.location, property.notes].filter(Boolean).join(" · ");
   app.innerHTML = `
     <main class="host-page">
@@ -824,7 +824,7 @@ function hostShell(content) {
         <div class="hero-top">
           <div class="brand"><span class="brand-logo-frame"><img src="./assets/logo.png" alt="" /></span><span>${propertyName}</span></div>
           <div class="toolbar">
-            ${property.stayToken ? `<button class="btn ghost" onclick="openGuestLink('register')">Vista huesped</button>` : ""}
+            ${property.stayToken ? `<button class="btn ghost" onclick="openGuestLink('register')">Vista huésped</button>` : ""}
             ${state.authUser ? `<button class="btn ghost" onclick="logoutHost()">Salir</button>` : ""}
           </div>
         </div>
@@ -843,7 +843,7 @@ function hostView() {
   if (!hasBackend()) {
     return hostShell(`
       <section class="panel">
-        <h2>Supabase no esta disponible</h2>
+        <h2>Supabase no está disponible</h2>
         <p class="muted">Revisa que el script de Supabase haya cargado correctamente antes de usar el panel.</p>
       </section>
     `);
@@ -872,7 +872,7 @@ function hostView() {
     return hostShell(`
       <section class="panel">
         <h2>No hay alojamiento configurado</h2>
-        <p class="muted">Cuando exista una propiedad en Supabase, aqui apareceran sus reservas.</p>
+        <p class="muted">Cuando exista una propiedad en Supabase, aquí aparecerán sus reservas.</p>
       </section>
     `);
   }
@@ -883,7 +883,7 @@ function hostView() {
         <div class="panel-head">
           <div>
             <h2>Reservas</h2>
-            <p class="muted">Todavia no hay reservas para este alojamiento.</p>
+            <p class="muted">Todavía no hay reservas para este alojamiento.</p>
           </div>
           <button class="btn icon-btn" onclick="toggleReservationForm()" aria-expanded="${state.showReservationForm}" aria-label="Nueva reserva">
             ${state.showReservationForm ? "-" : "+"}
@@ -899,7 +899,7 @@ function hostView() {
       <div class="panel-head">
         <div>
           <h2>Reservas</h2>
-          <p class="muted">Gestiona estancias activas y pasadas. Selecciona una reserva para ver su link, huespedes y estado de registro.</p>
+          <p class="muted">Gestiona estancias activas y pasadas. Selecciona una reserva para ver su link, huéspedes y estado de registro.</p>
         </div>
         <button class="btn icon-btn" onclick="toggleReservationForm()" aria-expanded="${state.showReservationForm}" aria-label="Nueva reserva">
           ${state.showReservationForm ? "-" : "+"}
@@ -925,8 +925,8 @@ function hostView() {
     <section class="panel">
       <div class="panel-head">
         <div>
-          <h2>Huespedes de esta reserva</h2>
-          <p class="muted">Una unica estancia genera un unico link compartido para que los ${guests.length} huespedes rellenen sus datos.</p>
+          <h2>Huéspedes de esta reserva</h2>
+          <p class="muted">Una única estancia genera un único link compartido para que los ${guests.length} huéspedes rellenen sus datos.</p>
         </div>
         <div class="toolbar">
           <button class="btn" onclick="resetDemo()">Reiniciar demo</button>
@@ -948,8 +948,8 @@ function hostView() {
     <section class="panel">
       <div class="panel-head">
         <div>
-          <h2>Link unico de la estancia</h2>
-          <p class="muted">Comparte este enlace con el grupo. Todos los huespedes registran sus datos desde la misma pagina.</p>
+          <h2>Link único de la estancia</h2>
+          <p class="muted">Comparte este enlace con el grupo. Todos los huéspedes registran sus datos desde la misma página.</p>
         </div>
         <button class="btn primary" onclick="openGuestLink('register')">Abrir link</button>
       </div>
@@ -959,10 +959,10 @@ function hostView() {
           <code>${guestLink()}</code>
         </div>
         <div class="link-meta">
-          <span>Token efimero</span>
+          <span>Token efímero</span>
           <strong>${property.stayToken}</strong>
         </div>
-        <p>Creado el ${formatDate(property.tokenCreatedAt)} y valido hasta la salida, ${formatDate(property.tokenExpiresAt)}. En una version con backend, el token se guardaria cifrado, seria revocable y caducaria automaticamente.</p>
+        <p>Creado el ${formatDate(property.tokenCreatedAt)} y válido hasta la salida, ${formatDate(property.tokenExpiresAt)}. En una versión con backend, el token se guardaría cifrado, sería revocable y caducaría automáticamente.</p>
       </div>
     </section>
   `);
@@ -974,7 +974,7 @@ function loginView() {
       <div class="panel-head">
         <div>
           <h2>Acceso arrendador</h2>
-          <p class="muted">Inicia sesion para gestionar reservas, enlaces y registros.</p>
+          <p class="muted">Inicia sesión para gestionar reservas, enlaces y registros.</p>
         </div>
       </div>
       <form class="reservation-form auth-form" onsubmit="event.preventDefault(); loginHost(this);">
@@ -983,7 +983,7 @@ function loginView() {
           <input name="email" required type="email" autocomplete="email" />
         </div>
         <div class="field">
-          <label>Contrasena</label>
+          <label>Contraseña</label>
           <input name="password" required type="password" autocomplete="current-password" />
         </div>
         <button class="btn primary" type="submit">${state.loading ? "Entrando..." : "Entrar"}</button>
@@ -1000,16 +1000,16 @@ function reservationForm() {
         <label>Nombre del grupo</label>
         <input name="groupName" placeholder="Opcional" />
       </div>
-      <div class="field">
+      <div class="field reservation-date-field">
         <label>Entrada</label>
         <input name="checkIn" required type="datetime-local" value="${formatDateTimeInput(property.checkIn) || defaultDateTimeInput(0, 16)}" />
       </div>
-      <div class="field">
+      <div class="field reservation-date-field">
         <label>Salida</label>
         <input name="checkOut" required type="datetime-local" value="${formatDateTimeInput(property.checkOut) || defaultDateTimeInput(1, 11)}" />
       </div>
       <div class="field">
-        <label>Numero de huespedes</label>
+        <label>Número de huéspedes</label>
         <input name="guestCount" required type="number" min="1" max="30" value="${guests.length || 1}" />
       </div>
       <button class="btn primary" type="submit">Generar reserva y link</button>
@@ -1077,13 +1077,12 @@ function hostGuestDetails(guest) {
 }
 
 function guestShell(content) {
-  const propertyName = property.name || "Registro de huespedes";
+  const propertyName = property.name || "Registro de huéspedes";
   const locationText = property.location ? `${property.location}. ` : "";
   app.innerHTML = `
     <main class="guest-page">
       <header class="guest-header">
         <div class="brand"><span class="brand-logo-frame"><img src="./assets/logo.png" alt="" /></span><span>${propertyName}</span></div>
-        <button class="btn ghost dark" onclick="route('host')">Panel</button>
       </header>
       <section class="guest-title">
         <p class="eyebrow">Check-in online</p>
@@ -1115,7 +1114,7 @@ function guestRegister() {
         <div class="progress"><span style="width: ${guests.length ? (completedCount() / guests.length) * 100 : 0}%"></span></div>
       </div>
       <div class="notice">
-        Este es el link unico de la estancia. Cada persona pulsa su hueco, rellena sus datos y queda en verde. Cuando todos esten en verde, se activa la pestana Acceso.
+        Este es el link único de la estancia. Cada persona pulsa su hueco, rellena sus datos y queda en verde. Cuando todos estén en verde, se activa la pestaña Acceso.
       </div>
       <div class="accordion-list">
         ${guests.map((guest) => guestAccordion(guest)).join("")}
@@ -1191,7 +1190,7 @@ function guestForm(guest) {
         </select>
       </div>
       <div class="field">
-        <label>Numero de documento</label>
+        <label>Número de documento</label>
         <input name="documentNumber" required autocomplete="off" />
       </div>
       <div class="field">
@@ -1201,8 +1200,8 @@ function guestForm(guest) {
       <div class="field full">
         <label>Fecha de nacimiento</label>
         <div class="date-parts" role="group" aria-label="Fecha de nacimiento">
-          <select name="birthDay" required aria-label="Dia de nacimiento">
-            <option value="">Dia</option>
+          <select name="birthDay" required aria-label="Día de nacimiento">
+            <option value="">Día</option>
             ${Array.from({ length: 31 }, (_, index) => `<option value="${index + 1}">${index + 1}</option>`).join("")}
           </select>
           <select name="birthMonth" required aria-label="Mes de nacimiento">
@@ -1228,10 +1227,10 @@ function guestForm(guest) {
       </div>
       <div class="field full">
         <label>Residencia habitual</label>
-        <input name="address" required placeholder="Direccion completa, localidad y pais" autocomplete="street-address" />
+        <input name="address" required placeholder="Dirección completa, localidad y país" autocomplete="street-address" />
       </div>
       <div class="field">
-        <label>Telefono movil</label>
+        <label>Teléfono móvil</label>
         <input name="phone" required type="tel" autocomplete="tel" />
       </div>
       <div class="field">
@@ -1253,7 +1252,7 @@ function guestAccess() {
             <div class="locked-panel">
               <div class="lock-icon">!</div>
               <h2>Acceso bloqueado</h2>
-              <p>Las instrucciones apareceran aqui cuando todos los huespedes esten en verde.</p>
+              <p>Las instrucciones aparecerán aquí cuando todos los huéspedes estén en verde.</p>
               <button class="btn primary full-width" onclick="route('guest', 'register')">Completar registros</button>
             </div>
           `
@@ -1267,7 +1266,7 @@ function accessUnlocked() {
     <article class="access-hero">
       <p class="eyebrow">Llegada</p>
       <h2>Acceso a ${property.name}</h2>
-      <p>Guardad esta pantalla antes de llegar. Aqui teneis la entrada exacta al campo, el recorrido hasta la casa y las normas basicas de la estancia.</p>
+      <p>Guardad esta pantalla antes de llegar. Aquí tenéis la entrada exacta al campo, el recorrido hasta la casa y las normas básicas de la estancia.</p>
     </article>
     <section class="quick-actions" aria-label="Enlaces utiles">
       <a class="btn primary" href="${accessLinks.map}" target="_blank" rel="noopener">Abrir mapa</a>

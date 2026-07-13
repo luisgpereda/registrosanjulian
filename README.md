@@ -1,12 +1,12 @@
 # Airbnb Guest Registry Prototype
 
-Boceto estatico para validar el flujo de registro de huespedes de un alojamiento antes de construir backend real.
+Boceto estático para validar el flujo de registro de huéspedes de un alojamiento antes de construir backend real.
 
-## Como abrirlo
+## Cómo abrirlo
 
 Abre `index.html` directamente en el navegador.
 
-Tambien puedes servirlo localmente:
+También puedes servirlo localmente:
 
 ```sh
 python3 -m http.server 5174
@@ -20,19 +20,19 @@ http://localhost:5174
 
 ## Pantallas incluidas
 
-- Panel privado del arrendador para una unica propiedad.
-- Link unico demo por estancia para cuatro huespedes.
-- Registro movil con un desplegable por huesped.
-- Huespedes marcados en verde cuando completan datos.
-- Pestana dedicada de acceso con instrucciones y FAQ, desbloqueada solo cuando todos estan en verde.
+- Panel privado del arrendador para una única propiedad.
+- Link único demo por estancia para cuatro huéspedes.
+- Registro móvil con un desplegable por huésped.
+- Huéspedes marcados en verde cuando completan datos.
+- Pestaña dedicada de acceso con instrucciones y FAQ, desbloqueada solo cuando todos están en verde.
 
-## Que falta para convertirlo en producto
+## Qué falta para convertirlo en producto
 
-- Autenticacion real del arrendador.
+- Autenticación real del arrendador.
 - Base de datos Postgres/Supabase.
-- Token unico de estancia, persistente y revocable.
-- Validacion server-side.
-- Cifrado o proteccion reforzada de campos sensibles.
-- Politica RGPD, logs de acceso y caducidad de datos.
-- Exportacion CSV/Excel para gestion manual.
-- Integracion con SES.HOSPEDAJES en una fase posterior.
+- Token único de estancia, persistente y revocable.
+- Validación server-side.
+- Cifrado o protección reforzada de campos sensibles.
+- Política RGPD, logs de acceso y caducidad de datos.
+- Exportación CSV/Excel para gestión manual.
+- Integración con SES.HOSPEDAJES en una fase posterior.
