@@ -588,14 +588,23 @@ summary:focus-visible {
 }
 
 .reservation-delete {
-  min-width: 86px;
+  align-self: center;
+  justify-self: end;
+  min-width: 0;
+  min-height: 36px;
   border: 0;
-  border-left: 1px solid var(--line);
   padding: 0 12px;
-  background: #fbf0eb;
+  background: transparent;
   color: var(--clay);
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.reservation-delete:hover {
+  color: #6f3326;
 }
 
 .reservation-card strong,
@@ -1045,9 +1054,9 @@ summary:focus-visible {
   }
 
   .reservation-delete {
-    min-height: 42px;
-    border-top: 1px solid var(--line);
-    border-left: 0;
+    min-height: 34px;
+    margin: 0 10px 10px;
+    justify-self: end;
   }
 
   .guest-data-grid {

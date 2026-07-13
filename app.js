@@ -1068,7 +1068,7 @@ function hostGuestRow(guest) {
         <strong>${guest.complete ? guest.name : guest.label}</strong>
         <span>${guest.complete ? `${guest.documentType} registrado` : "Pendiente de datos"}</span>
       </div>
-      <span class="pill ${guest.complete ? "ok" : "pending"}">${guest.complete ? "Verde" : "Pendiente"}</span>
+      <span class="pill ${guest.complete ? "ok" : "pending"}">${guest.complete ? "Completo" : "Pendiente"}</span>
       ${guest.complete ? hostGuestDetails(guest) : ""}
     </article>
   `;
