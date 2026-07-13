@@ -4,6 +4,7 @@ const SUPABASE_URL = "https://brossrtbenywacrfxkty.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyb3NzcnRiZW55d2FjcmZ4a3R5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5NTcwNTgsImV4cCI6MjA5OTUzMzA1OH0.JmYDHw1oTa52noohGHCk2gbGTkriA6iZ2G_PqHOJkAM";
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const SUPABASE_TIMEOUT_MS = 12000;
 
 const DEFAULT_PROPERTY = {
   name: "Hacienda San Julián",
@@ -46,6 +47,16 @@ const reservations = [];
 window.state = state;
 window.guests = guests;
 window.reservations = reservations;
+
+function withSupabaseTimeout(request, action, timeoutMs = SUPABASE_TIMEOUT_MS) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`La base de datos no respondió a tiempo al ${action}. Revisa la conexión e inténtalo de nuevo.`));
+    }, timeoutMs);
+  });
+  return Promise.race([request, timeout]).finally(() => clearTimeout(timeoutId));
+}
 
 const faqs = [
   ["Hora de entrada", "La entrada está disponible desde las 16:00."],
@@ -460,14 +471,17 @@ async function ensureHostProperty(existingProperties = []) {
   const currentProperty = existingProperties[0];
   if (currentProperty) return currentProperty;
 
-  const { data, error } = await supabaseClient
-    .from("properties")
-    .insert({
-      owner_id: state.authUser.id,
-      ...DEFAULT_PROPERTY,
-    })
-    .select("*")
-    .single();
+  const { data, error } = await withSupabaseTimeout(
+    supabaseClient
+      .from("properties")
+      .insert({
+        owner_id: state.authUser.id,
+        ...DEFAULT_PROPERTY,
+      })
+      .select("*")
+      .single(),
+    "crear el alojamiento",
+  );
 
   if (error) {
     throw error;
@@ -482,107 +496,106 @@ async function loadHostData() {
   state.dataError = "";
   render();
 
-  const { data: properties, error: propertyError } = await supabaseClient
-    .from("properties")
-    .select("*")
-    .order("created_at", { ascending: true })
-    .limit(1);
+  try {
+    const { data: properties, error: propertyError } = await withSupabaseTimeout(
+      supabaseClient
+        .from("properties")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .limit(1),
+      "cargar el alojamiento",
+    );
+    if (propertyError) throw propertyError;
 
-  if (propertyError) {
-    state.dataError = propertyError.message;
+    let currentProperty;
+    currentProperty = await ensureHostProperty(properties || []);
+
+    applyPropertyFromRow(currentProperty);
+
+    if (!currentProperty) {
+      reservations.splice(0, reservations.length);
+      clearActiveReservation();
+      state.loading = false;
+      render();
+      return;
+    }
+
+    const { data, error } = await withSupabaseTimeout(
+      supabaseClient
+        .from("reservations")
+        .select("*, guests(*)")
+        .eq("property_id", currentProperty.id)
+        .order("check_in", { ascending: true }),
+      "cargar las reservas",
+    );
+    if (error) throw error;
+
+    reservations.splice(0, reservations.length, ...(data || []).map(mapReservationFromRow));
+    if (reservations.length > 0) {
+      const active = reservations.find((reservation) => reservation.id === state.activeReservationId) || reservations[0];
+      applyReservation(active);
+    } else {
+      clearActiveReservation();
+    }
     state.loading = false;
     render();
-    return;
-  }
-
-  let currentProperty;
-  try {
-    currentProperty = await ensureHostProperty(properties || []);
   } catch (error) {
     state.dataError = error.message;
     state.loading = false;
     render();
-    return;
   }
-
-  applyPropertyFromRow(currentProperty);
-
-  if (!currentProperty) {
-    reservations.splice(0, reservations.length);
-    clearActiveReservation();
-    state.loading = false;
-    render();
-    return;
-  }
-
-  const { data, error } = await supabaseClient
-    .from("reservations")
-    .select("*, guests(*)")
-    .eq("property_id", currentProperty.id)
-    .order("check_in", { ascending: true });
-
-  if (error) {
-    state.dataError = error.message;
-    state.loading = false;
-    render();
-    return;
-  }
-
-  reservations.splice(0, reservations.length, ...(data || []).map(mapReservationFromRow));
-  if (reservations.length > 0) {
-    const active = reservations.find((reservation) => reservation.id === state.activeReservationId) || reservations[0];
-    applyReservation(active);
-  } else {
-    clearActiveReservation();
-  }
-  state.loading = false;
-  render();
 }
 
-async function loadPublicReservation(publicSlug) {
+async function loadPublicReservation(publicSlug, options = {}) {
+  const { showLoading = true, showError = true } = options;
   if (!hasBackend() || !publicSlug) return false;
-  state.loading = true;
+  if (showLoading) state.loading = true;
   state.dataError = "";
-  render();
+  if (showLoading) render();
 
-  const { data, error } = await supabaseClient.rpc("get_public_reservation", {
-    input_public_slug: publicSlug,
-  });
+  try {
+    const { data, error } = await withSupabaseTimeout(
+      supabaseClient.rpc("get_public_reservation", {
+        input_public_slug: publicSlug,
+      }),
+      "cargar la reserva",
+    );
+    if (error || !data) throw new Error(error?.message || "No se ha encontrado esta reserva.");
 
-  if (error || !data) {
-    state.dataError = error?.message || "No se ha encontrado esta reserva.";
+    const mapped = mapPublicReservation(data);
+    mapped.reservation.guests.forEach((guest) => {
+      const currentGuest = guests.find((item) => item.id === guest.id);
+      if (currentGuest?.details && !guest.details) {
+        guest.details = { ...currentGuest.details };
+        guest.name = currentGuest.name;
+        guest.documentType = currentGuest.documentType;
+      }
+    });
+    applyPropertyFromRow(mapped.property);
+    const index = reservations.findIndex((reservation) => reservation.id === mapped.reservation.id);
+    if (index >= 0) {
+      reservations[index] = mapped.reservation;
+    } else {
+      reservations.splice(0, reservations.length, mapped.reservation);
+    }
+    applyReservation(mapped.reservation);
     state.loading = false;
-    render();
+    if (showLoading) render();
+    return true;
+  } catch (error) {
+    if (showError) state.dataError = error.message;
+    state.loading = false;
+    if (showLoading || showError) render();
     return false;
   }
-
-  const mapped = mapPublicReservation(data);
-  mapped.reservation.guests.forEach((guest) => {
-    const currentGuest = guests.find((item) => item.id === guest.id);
-    if (currentGuest?.details && !guest.details) {
-      guest.details = { ...currentGuest.details };
-      guest.name = currentGuest.name;
-      guest.documentType = currentGuest.documentType;
-    }
-  });
-  applyPropertyFromRow(mapped.property);
-  const index = reservations.findIndex((reservation) => reservation.id === mapped.reservation.id);
-  if (index >= 0) {
-    reservations[index] = mapped.reservation;
-  } else {
-    reservations.splice(0, reservations.length, mapped.reservation);
-  }
-  applyReservation(mapped.reservation);
-  state.loading = false;
-  render();
-  return true;
 }
 
 async function refreshActivePublicReservation() {
   const reservation = activeReservation();
   if (reservation?.stayToken) {
-    await loadPublicReservation(reservation.stayToken);
+    return loadPublicReservation(reservation.stayToken, { showLoading: false, showError: false });
   }
+  return false;
 }
 
 function switchReservation(id) {
@@ -608,13 +621,18 @@ async function deleteReservation(id) {
   if (!confirmed) return;
 
   if (hasBackend() && state.authUser) {
-    const { error } = await supabaseClient.from("reservations").delete().eq("id", id);
-    if (error) {
+    try {
+      const { error } = await withSupabaseTimeout(
+        supabaseClient.from("reservations").delete().eq("id", id),
+        "borrar la reserva",
+      );
+      if (error) throw error;
+      await loadHostData();
+      return;
+    } catch (error) {
       window.alert(`No se pudo borrar la reserva: ${error.message}`);
       return;
     }
-    await loadHostData();
-    return;
   }
 
   reservations.splice(reservationIndex, 1);
@@ -636,25 +654,31 @@ async function loginHost(form) {
   state.loading = true;
   render();
 
-  const { data: authData, error } = await supabaseClient.auth.signInWithPassword({
-    email: data.get("email"),
-    password: data.get("password"),
-  });
-
-  if (error) {
+  try {
+    const { data: authData, error } = await withSupabaseTimeout(
+      supabaseClient.auth.signInWithPassword({
+        email: data.get("email"),
+        password: data.get("password"),
+      }),
+      "iniciar sesión",
+    );
+    if (error) throw error;
+    state.authUser = authData.user;
+    await loadHostData();
+  } catch (error) {
     state.authError = error.message;
     state.loading = false;
     render();
-    return;
   }
-
-  state.authUser = authData.user;
-  await loadHostData();
 }
 
 async function logoutHost() {
   if (!hasBackend()) return;
-  await supabaseClient.auth.signOut();
+  try {
+    await withSupabaseTimeout(supabaseClient.auth.signOut(), "cerrar sesión");
+  } catch (error) {
+    console.warn(error);
+  }
   state.authUser = null;
   state.view = "host";
   state.loading = false;
@@ -761,23 +785,28 @@ async function completeGuest(id, form) {
   if (hasBackend()) {
     const reservation = activeReservation();
     if (!reservation?.stayToken) return;
-    const { error } = await supabaseClient.rpc("update_public_guest", {
-      input_public_slug: reservation.stayToken,
-      input_position: id,
-      input_name: details.name,
-      input_surname: details.surname,
-      input_second_surname: details.secondSurname,
-      input_sex: details.sex,
-      input_document_type: details.documentType,
-      input_document_number: details.documentNumber,
-      input_nationality: details.nationality,
-      input_birth_date: details.birthDate,
-      input_address: details.address,
-      input_phone: details.phone,
-      input_email: details.email,
-      input_signature: null,
-    });
-    if (error) {
+    try {
+      const { error } = await withSupabaseTimeout(
+        supabaseClient.rpc("update_public_guest", {
+          input_public_slug: reservation.stayToken,
+          input_position: id,
+          input_name: details.name,
+          input_surname: details.surname,
+          input_second_surname: details.secondSurname,
+          input_sex: details.sex,
+          input_document_type: details.documentType,
+          input_document_number: details.documentNumber,
+          input_nationality: details.nationality,
+          input_birth_date: details.birthDate,
+          input_address: details.address,
+          input_phone: details.phone,
+          input_email: details.email,
+          input_signature: null,
+        }),
+        "guardar el registro",
+      );
+      if (error) throw error;
+    } catch (error) {
       window.alert(`No se pudo guardar el registro: ${error.message}`);
       return;
     }
@@ -830,19 +859,25 @@ async function createReservation(form) {
   }
 
   if (hasBackend() && state.propertyId) {
-    const { data: reservationRow, error } = await supabaseClient
-      .from("reservations")
-      .insert({
-        property_id: state.propertyId,
-        group_name: data.get("groupName")?.trim() || null,
-        check_in: checkIn,
-        check_out: checkOut,
-        guest_count: guestCount,
-      })
-      .select()
-      .single();
-
-    if (error) {
+    let reservationRow;
+    try {
+      const { data: createdReservation, error } = await withSupabaseTimeout(
+        supabaseClient
+          .from("reservations")
+          .insert({
+            property_id: state.propertyId,
+            group_name: data.get("groupName")?.trim() || null,
+            check_in: checkIn,
+            check_out: checkOut,
+            guest_count: guestCount,
+          })
+          .select()
+          .single(),
+        "crear la reserva",
+      );
+      if (error) throw error;
+      reservationRow = createdReservation;
+    } catch (error) {
       window.alert(`No se pudo crear la reserva: ${error.message}`);
       return;
     }
@@ -851,9 +886,14 @@ async function createReservation(form) {
       reservation_id: reservationRow.id,
       position: index + 1,
     }));
-    const { error: guestsError } = await supabaseClient.from("guests").insert(guestRows);
-    if (guestsError) {
-      window.alert(`La reserva se creó, pero no se pudieron crear los huéspedes: ${guestsError.message}`);
+    try {
+      const { error: guestsError } = await withSupabaseTimeout(
+        supabaseClient.from("guests").insert(guestRows),
+        "crear los huéspedes",
+      );
+      if (guestsError) throw guestsError;
+    } catch (error) {
+      window.alert(`La reserva se creó, pero no se pudieron crear los huéspedes: ${error.message}`);
       return;
     }
 
@@ -1418,7 +1458,7 @@ function render() {
         <section class="mobile-panel">
           <div class="locked-panel">
             <h2>Cargando reserva</h2>
-            <p>Conectando con Supabase...</p>
+            <p>Espere por favor...</p>
           </div>
         </section>
       </main>
@@ -1458,19 +1498,28 @@ window.logoutHost = logoutHost;
 window.loadHostData = loadHostData;
 
 window.addEventListener("hashchange", async () => {
-  await initFromHash();
+  try {
+    await initFromHash();
+  } catch (error) {
+    state.dataError = error.message;
+    state.loading = false;
+  }
   render();
 });
 
 async function boot() {
-  if (hasBackend()) {
-    const { data } = await supabaseClient.auth.getSession();
-    state.authUser = data.session?.user || null;
-  }
-  await initFromHash();
-  if (state.view === "host" && state.authUser) {
-    await loadHostData();
-    return;
+  try {
+    if (hasBackend()) {
+      const { data } = await withSupabaseTimeout(supabaseClient.auth.getSession(), "recuperar la sesión");
+      state.authUser = data.session?.user || null;
+    }
+    await initFromHash();
+    if (state.view === "host" && state.authUser) {
+      await loadHostData();
+      return;
+    }
+  } catch (error) {
+    state.dataError = error.message;
   }
   state.loading = false;
   render();
