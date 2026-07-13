@@ -5,6 +5,14 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyb3NzcnRiZW55d2FjcmZ4a3R5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5NTcwNTgsImV4cCI6MjA5OTUzMzA1OH0.JmYDHw1oTa52noohGHCk2gbGTkriA6iZ2G_PqHOJkAM";
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const DEFAULT_PROPERTY = {
+  name: "Hacienda San Julian",
+  location: "Lorca, Murcia",
+  notes: "Alojamiento de San Julian.",
+  map_url: null,
+  route_video_url: null,
+};
+
 const property = {
   name: "",
   location: "",
@@ -356,6 +364,18 @@ function applyPropertyFromRow(row) {
   state.propertyId = row.id || state.propertyId;
 }
 
+function clearActiveReservation() {
+  property.bookingRef = "";
+  property.stayToken = "";
+  property.tokenCreatedAt = "";
+  property.tokenExpiresAt = "";
+  property.checkIn = "";
+  property.checkOut = "";
+  guests.splice(0, guests.length);
+  state.activeReservationId = null;
+  state.openGuestId = null;
+}
+
 function activeReservation() {
   return reservations.find((reservation) => reservation.id === state.activeReservationId);
 }
@@ -385,6 +405,26 @@ function applyReservation(reservation) {
   state.openGuestId = nextPending ? nextPending.id : null;
 }
 
+async function ensureHostProperty(existingProperties = []) {
+  const currentProperty = existingProperties[0];
+  if (currentProperty) return currentProperty;
+
+  const { data, error } = await supabaseClient
+    .from("properties")
+    .insert({
+      owner_id: state.authUser.id,
+      ...DEFAULT_PROPERTY,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 async function loadHostData() {
   if (!hasBackend() || !state.authUser) return;
   state.loading = true;
@@ -404,11 +444,21 @@ async function loadHostData() {
     return;
   }
 
-  const currentProperty = properties?.[0];
+  let currentProperty;
+  try {
+    currentProperty = await ensureHostProperty(properties || []);
+  } catch (error) {
+    state.dataError = error.message;
+    state.loading = false;
+    render();
+    return;
+  }
+
   applyPropertyFromRow(currentProperty);
 
   if (!currentProperty) {
     reservations.splice(0, reservations.length);
+    clearActiveReservation();
     state.loading = false;
     render();
     return;
@@ -431,6 +481,8 @@ async function loadHostData() {
   if (reservations.length > 0) {
     const active = reservations.find((reservation) => reservation.id === state.activeReservationId) || reservations[0];
     applyReservation(active);
+  } else {
+    clearActiveReservation();
   }
   state.loading = false;
   render();
@@ -492,10 +544,6 @@ function toggleReservationForm() {
 async function deleteReservation(id) {
   const reservationIndex = reservations.findIndex((reservation) => reservation.id === id);
   if (reservationIndex === -1) return;
-  if (reservations.length === 1) {
-    window.alert("Debe quedar al menos una reserva activa en esta demo.");
-    return;
-  }
   const reservation = reservations[reservationIndex];
   const confirmed = window.confirm(`Borrar la reserva ${reservation.bookingRef}? Esta accion quitara tambien su link efimero.`);
   if (!confirmed) return;
@@ -511,7 +559,9 @@ async function deleteReservation(id) {
   }
 
   reservations.splice(reservationIndex, 1);
-  if (state.activeReservationId === id) {
+  if (reservations.length === 0) {
+    clearActiveReservation();
+  } else if (state.activeReservationId === id) {
     applyReservation(reservations[Math.max(0, reservationIndex - 1)]);
   }
   state.view = "host";
@@ -584,6 +634,11 @@ function route(view, tab = state.tab) {
   state.tab = tab;
   window.location.hash = view === "guest" ? `guest/${tab}/${property.stayToken}` : "host";
   render();
+}
+
+function openGuestLink(tab = "register") {
+  if (!property.stayToken) return;
+  window.open(guestLink(tab), "_blank", "noopener");
 }
 
 function toggleGuest(id) {
@@ -769,7 +824,7 @@ function hostShell(content) {
         <div class="hero-top">
           <div class="brand"><span class="brand-logo-frame"><img src="./assets/logo.png" alt="" /></span><span>${propertyName}</span></div>
           <div class="toolbar">
-            ${property.stayToken ? `<button class="btn ghost" onclick="route('guest', 'register')">Vista huesped</button>` : ""}
+            ${property.stayToken ? `<button class="btn ghost" onclick="openGuestLink('register')">Vista huesped</button>` : ""}
             ${state.authUser ? `<button class="btn ghost" onclick="logoutHost()">Salir</button>` : ""}
           </div>
         </div>
@@ -799,12 +854,8 @@ function hostView() {
   }
 
   if (state.loading) {
-    return hostShell(`
-      <section class="panel">
-        <h2>Cargando reservas</h2>
-        <p class="muted">Conectando con Supabase...</p>
-      </section>
-    `);
+    app.innerHTML = "";
+    return;
   }
 
   if (state.dataError) {
@@ -879,7 +930,7 @@ function hostView() {
         </div>
         <div class="toolbar">
           <button class="btn" onclick="resetDemo()">Reiniciar demo</button>
-          <button class="btn primary" onclick="route('guest', 'register')">Abrir registro</button>
+          <button class="btn primary" onclick="openGuestLink('register')">Abrir registro</button>
         </div>
       </div>
       <div class="progress-card">
@@ -900,7 +951,7 @@ function hostView() {
           <h2>Link unico de la estancia</h2>
           <p class="muted">Comparte este enlace con el grupo. Todos los huespedes registran sus datos desde la misma pagina.</p>
         </div>
-        <button class="btn primary" onclick="route('guest', 'register')">Abrir link</button>
+        <button class="btn primary" onclick="openGuestLink('register')">Abrir link</button>
       </div>
       <div class="single-link-card">
         <div>
@@ -1293,6 +1344,7 @@ function render() {
 }
 
 window.route = route;
+window.openGuestLink = openGuestLink;
 window.toggleGuest = toggleGuest;
 window.completeGuest = completeGuest;
 window.resetDemo = resetDemo;
