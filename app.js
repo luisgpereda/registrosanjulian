@@ -191,18 +191,35 @@ async function completeGuest(id, form) {
     return;
   }
   const details = {
-    name: data.get("name") || "",
-    surname: data.get("surname") || "",
-    secondSurname: data.get("secondSurname") || "",
+    name: data.get("name")?.trim() || "",
+    surname: data.get("surname")?.trim() || "",
+    secondSurname: data.get("secondSurname")?.trim() || "",
     sex: data.get("sex") || "",
-    documentType: data.get("documentType") || "Documento",
-    documentNumber: data.get("documentNumber") || "",
-    nationality: data.get("nationality") || "",
+    documentType: data.get("documentType") || "",
+    documentNumber: data.get("documentNumber")?.trim() || "",
+    nationality: data.get("nationality")?.trim() || "",
     birthDate,
-    address: data.get("address") || "",
-    phone: data.get("phone") || "",
-    email: data.get("email") || "",
+    address: data.get("address")?.trim() || "",
+    phone: data.get("phone")?.trim() || "",
+    email: data.get("email")?.trim() || "",
   };
+  const requiredFields = [
+    details.name,
+    details.surname,
+    details.secondSurname,
+    details.sex,
+    details.documentType,
+    details.documentNumber,
+    details.nationality,
+    details.birthDate,
+    details.address,
+    details.phone,
+    details.email,
+  ];
+  if (requiredFields.some((value) => !value)) {
+    window.alert("Rellena todos los campos obligatorios antes de guardar.");
+    return;
+  }
 
   if (hasBackend()) {
     const reservation = activeReservation();
@@ -675,7 +692,7 @@ function completedGuestBody() {
     <div class="accordion-body">
       <div class="saved-card">
         <strong>Registro completado</strong>
-        <span>Todos los campos obligatorios se han guardado correctamente.</span>
+        <span>Todos los campos se han guardado correctamente.</span>
       </div>
     </div>
   `;
@@ -694,7 +711,7 @@ function guestForm(guest) {
       </div>
       <div class="field">
         <label>Segundo apellido</label>
-        <input name="secondSurname" autocomplete="additional-name" />
+        <input name="secondSurname" required autocomplete="additional-name" />
       </div>
       <div class="field">
         <label>Sexo</label>
@@ -750,8 +767,8 @@ function guestForm(guest) {
         </div>
       </div>
       <div class="field full">
-        <label>Residencia habitual</label>
-        <input name="address" required placeholder="Dirección completa, localidad y país" autocomplete="street-address" />
+        <label>Ciudad/Población</label>
+        <input name="address" required placeholder="Ciudad o población" autocomplete="address-level2" />
       </div>
       <div class="field">
         <label>Teléfono móvil</label>
@@ -761,7 +778,7 @@ function guestForm(guest) {
         <label>Email</label>
         <input name="email" required type="email" autocomplete="email" />
       </div>
-      <button class="btn primary full-width" type="submit">Guardar ${guest.label}</button>
+      <button class="btn primary full-width" type="submit">Registrar datos</button>
     </form>
   `;
 }

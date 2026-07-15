@@ -175,7 +175,7 @@ window.AppState = (() => {
     ["Documento", "documentLabel"],
     ["Nacionalidad", "nationality"],
     ["Fecha de nacimiento", "birthDate"],
-    ["Residencia habitual", "address"],
+    ["Ciudad/Población", "address"],
     ["Teléfono móvil", "phone"],
     ["Email", "email"],
   ];
