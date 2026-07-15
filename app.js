@@ -245,7 +245,9 @@ async function completeGuest(id, form) {
       );
       if (error) throw error;
     } catch (error) {
+      await refreshActivePublicReservation();
       window.alert(`No se pudo guardar el registro: ${error.message}`);
+      render();
       return;
     }
     guest.complete = true;
