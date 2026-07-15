@@ -845,6 +845,16 @@ async function initFromHash() {
     const [, tab, token] = hash.split("/");
     state.view = "guest";
     state.tab = tab === "access" ? "access" : "register";
+    if (!token) {
+      state.loading = false;
+      state.dataError = "El enlace de huéspedes no incluye un token de reserva válido.";
+      return;
+    }
+    if (!hasBackend()) {
+      state.loading = false;
+      state.dataError = "No se pudo conectar con la base de datos. Revisa la conexión y recarga la página.";
+      return;
+    }
     const tokenReservation = reservations.find((reservation) => reservation.stayToken === token);
     if (tokenReservation && tokenReservation.id !== state.activeReservationId) {
       syncActiveReservation();
@@ -878,6 +888,7 @@ function render() {
           <div class="locked-panel">
             <h2>No se pudo abrir el enlace</h2>
             <p>${escapeHtml(state.dataError)}</p>
+            <button class="btn primary full-width" onclick="retryGuestLink()">Reintentar</button>
           </div>
         </section>
       </main>
@@ -886,6 +897,19 @@ function render() {
   }
   if (state.view === "guest") return guestView();
   return hostView();
+}
+
+async function retryGuestLink() {
+  state.loading = true;
+  state.dataError = "";
+  render();
+  try {
+    await initFromHash();
+  } catch (error) {
+    state.dataError = error.message;
+    state.loading = false;
+  }
+  render();
 }
 
 window.route = route;
@@ -900,6 +924,7 @@ window.toggleReservationForm = toggleReservationForm;
 window.loginHost = loginHost;
 window.logoutHost = logoutHost;
 window.loadHostData = loadHostData;
+window.retryGuestLink = retryGuestLink;
 
 setRenderer(render);
 
@@ -915,11 +940,16 @@ window.addEventListener("hashchange", async () => {
 
 async function boot() {
   try {
+    await initFromHash();
+    if (state.view === "guest") {
+      state.loading = false;
+      render();
+      return;
+    }
     if (hasBackend()) {
       const { data } = await withSupabaseTimeout(supabaseClient.auth.getSession(), "recuperar la sesión");
       state.authUser = data.session?.user || null;
     }
-    await initFromHash();
     if (state.view === "host" && state.authUser) {
       await loadHostData();
       return;
