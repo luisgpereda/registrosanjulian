@@ -2,7 +2,6 @@ const {
   accessLinks,
   accessSections,
   app,
-  faqs,
   guests,
   hostGuestFields,
   property,
@@ -471,9 +470,6 @@ function hostView() {
           <h2>Huéspedes de esta reserva</h2>
           <p class="muted">Una única estancia genera un único link compartido para que los ${guests.length} huéspedes rellenen sus datos.</p>
         </div>
-        <div class="toolbar">
-          <button class="btn primary" onclick="openGuestLink('register')">Abrir registro</button>
-        </div>
       </div>
       <div class="progress-card">
         <div class="progress-row">
@@ -513,7 +509,7 @@ function loginView() {
     <section class="panel auth-panel">
       <div class="panel-head">
         <div>
-          <h2>Acceso arrendador</h2>
+          <h2>Acceso</h2>
           <p class="muted">Inicia sesión para gestionar reservas, enlaces y registros.</p>
         </div>
       </div>
@@ -803,34 +799,41 @@ function guestAccess() {
 }
 
 function accessUnlocked() {
+  const hasMap = Boolean(accessLinks.map && accessLinks.map !== "#");
+  const hasRouteVideo = Boolean(accessLinks.routeVideo && accessLinks.routeVideo !== "#");
+  const accessImages = accessLinks.images || [];
+  const hasImageLinks = accessImages.length > 0;
   return `
     <article class="access-hero">
       <p class="eyebrow">Llegada</p>
-      <h2>Acceso a ${property.name}</h2>
-      <p>Guardad esta pantalla antes de llegar. Aquí tenéis la entrada exacta al campo, el recorrido hasta la casa y las normas básicas de la estancia.</p>
+      <h2>Acceso a ${escapeHtml(property.name)}</h2>
+      <p>Información práctica para llegar a la casa, entrar correctamente y preparar la salida. Esperamos que disfrutéis mucho de la casa.</p>
     </article>
-    <section class="quick-actions" aria-label="Enlaces utiles">
-      <a class="btn primary" href="${accessLinks.map}" target="_blank" rel="noopener">Abrir mapa</a>
-      <a class="btn" href="${accessLinks.routeVideo}" target="_blank" rel="noopener">Ver video del recorrido</a>
-    </section>
+    ${
+      hasMap || hasRouteVideo || hasImageLinks
+        ? `
+          <section class="quick-actions" aria-label="Enlaces útiles">
+            ${hasMap ? `<a class="btn primary" href="${escapeHtml(accessLinks.map)}" target="_blank" rel="noopener">Abrir mapa</a>` : ""}
+            ${hasRouteVideo ? `<a class="btn primary" href="${escapeHtml(accessLinks.routeVideo)}" target="_blank" rel="noopener">Ver vídeo del recorrido</a>` : ""}
+            ${accessImages.map((image) => `<a class="btn primary" href="${escapeHtml(image.src)}" target="_blank" rel="noopener">${escapeHtml(image.label)}</a>`).join("")}
+          </section>
+        `
+        : ""
+    }
     ${accessSections
       .map(
         (section) => `
           <section class="access-section">
-            <h2>${section.title}</h2>
+            <h2>${escapeHtml(section.title)}</h2>
             <div class="access-list">
               ${section.items
-                .map((item) => `<article><span>${item.label}</span><strong>${item.text}</strong></article>`)
+                .map((item) => `<article><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.text)}</strong></article>`)
                 .join("")}
             </div>
           </section>
         `,
       )
       .join("")}
-    <section class="faq">
-      <h2>FAQ</h2>
-      ${faqs.map(([question, answer]) => `<details><summary>${question}</summary><p>${answer}</p></details>`).join("")}
-    </section>
   `;
 }
 

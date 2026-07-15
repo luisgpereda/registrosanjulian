@@ -69,101 +69,105 @@ window.AppState = (() => {
     return Promise.race([request, timeout]).finally(() => clearTimeout(timeoutId));
   }
 
-  const faqs = [
-    ["Hora de entrada", "La entrada está disponible desde las 16:00."],
-    ["Hora de salida", "La salida es antes de las 11:00. Dejad las llaves según las instrucciones del anfitrión."],
-    ["Zonas privadas", "Las zonas privadas del alojamiento quedan indicadas por el anfitrión antes de la llegada."],
-    ["Contacto", "Para cualquier cosa, contactad con el anfitrión por el canal acordado."],
-  ];
-
   const accessLinks = {
-    routeVideo: "#",
-    map: "#",
+    images: [
+      {
+        src: "./assets/acceso_cenital.jpg",
+        alt: "Vista cenital de la casa y el camino de acceso marcado",
+        caption: "Vista cenital de la casa y del camino de acceso marcado en negro.",
+        label: "Ver foto cenital de la casa y acceso",
+      },
+      {
+        src: "./assets/acceso_street_view.jpeg",
+        alt: "Foto del acceso desde Google Street View",
+        caption: "Entrada al camino vista desde la carretera. La flecha indica el acceso.",
+        label: "Ver Street View de la entrada de la casa",
+      },
+    ],
+    map: "https://www.google.com/maps/search/?api=1&query=37.697111,-1.634056",
+    routeVideo: "",
   };
 
   const accessSections = [
     {
-      title: "Ubicación y entrada al campo",
+      title: "Dirección exacta",
       items: [
         {
-          label: "Entrada al camino",
-          text: "Seguid las indicaciones compartidas por el anfitrión para llegar al acceso principal.",
+          label: "Orientación",
+          text: "La entrada se identifica por un camino de pinos. En el acceso hay una piedra con el texto San Julián.",
         },
         {
-          label: "Coordenadas",
-          text: "Coordenadas disponibles en la reserva real.",
+          label: "Coordenadas del camino de acceso",
+          text: "37°41'49.6\"N 1°38'02.6\"W",
         },
         {
           label: "Dirección de la casa",
-          text: "Dirección disponible en la reserva real.",
+          text: "Diseminado la Hoya, 293, 30816 San Julián, Murcia.",
         },
       ],
     },
     {
-      title: "Recorrido hasta la casa",
+      title: "Entrada por el camino",
       items: [
         {
-          label: "Primer tramo",
-          text: "Seguid el recorrido indicado en el enlace de acceso.",
-        },
-        {
-          label: "Ultimo giro",
-          text: "Confirmad el último tramo con el anfitrión si tenéis dudas.",
-        },
-        {
-          label: "Llegada",
-          text: "Aparcad en la zona indicada para huéspedes.",
+          label: "Indicaciones",
+          text: "Hay que seguir todo el camino recto hasta encontrar una cancela. En ese punto se gira a la izquierda. Al final del carril hay un muro; allí se vuelve a girar a la derecha y se continúa haciendo una U, como se indica en la imagen del acceso, hasta llegar a la parte trasera de la casa.",
         },
       ],
     },
     {
-      title: "Al llegar",
+      title: "Llegada y llaves",
       items: [
         {
           label: "Aparcamiento",
-          text: "Usad la zona de aparcamiento indicada por el anfitrión.",
+          text: "Una vez dentro de la casa, el coche se puede aparcar dentro del patio o fuera, según se prefiera.",
         },
         {
-          label: "Puerta de acceso",
-          text: "Entrad por la puerta indicada en las instrucciones de la reserva.",
+          label: "Entrega de llaves",
+          text: "Al llegar se entregará una copia de las llaves.",
         },
         {
-          label: "Llaves interiores",
-          text: "Revisad las instrucciones de llaves antes de salir del alojamiento.",
+          label: "Acceso a la casa",
+          text: "La entrada se realiza por la puerta de la planta baja, situada en el patio. En esa planta están la mayoría de los dormitorios; el resto se encuentran en la planta superior.",
         },
       ],
     },
     {
-      title: "Durante la estancia",
+      title: "Uso de la casa",
       items: [
         {
-          label: "Jardin",
-          text: "Usad solo las zonas exteriores habilitadas para huéspedes.",
+          label: "Jardín",
+          text: "Se puede salir al jardín por la puerta principal de la planta baja, junto al salón, o por la terraza de la planta superior. Por favor, no se deben tirar piedras al estanque ni mover las piedras grandes del jardín.",
         },
         {
-          label: "Cuidado exterior",
-          text: "Cuidad las zonas comunes y dejadlas como las encontrasteis.",
+          label: "Puertas interiores",
+          text: "Las llaves se han dejado en sus puertas o cerca de ellas. Solo es necesario cerrar la puerta del patio; el resto se cierran desde dentro de la casa.",
         },
         {
           label: "Ropa de casa",
-          text: "Las camas quedan hechas y encima encontraréis un juego de toallas para cada persona y otra toalla para la piscina.",
+          text: "Las camas estarán hechas. Encima de cada cama habrá un juego de toallas para cada persona y una toalla adicional para la piscina.",
         },
         {
           label: "Zonas disponibles",
-          text: "Las zonas no disponibles estarán cerradas o señalizadas.",
+          text: "El trastero y una sala de la planta superior, situada entre el salón principal y el comedor, permanecerán cerrados por contener objetos personales. El resto de la casa queda a disposición de los huéspedes.",
         },
       ],
     },
     {
-      title: "Salida y contacto",
+      title: "Instrucciones de salida",
       items: [
         {
           label: "Entrega de llaves",
-          text: "Al salir, dejad las llaves según las instrucciones del anfitrión.",
+          text: "Al salir, las llaves deben dejarse en la primera maceta situada junto al portalón. Después, conviene avisar para que puedan pasar a recogerlas y cerrar la casa.",
         },
+      ],
+    },
+    {
+      title: "Contacto",
+      items: [
         {
-          label: "Telefono y WhatsApp",
-          text: "Para cualquier cosa, usad el contacto compartido en la reserva real.",
+          label: "Teléfono y WhatsApp",
+          text: "Para cualquier cosa, se puede contactar por teléfono o WhatsApp en el 608 96 72 48 o en el 610 54 72 20.",
         },
       ],
     },
@@ -185,7 +189,6 @@ window.AppState = (() => {
     accessLinks,
     accessSections,
     app,
-    faqs,
     guests,
     hostGuestFields,
     property,
