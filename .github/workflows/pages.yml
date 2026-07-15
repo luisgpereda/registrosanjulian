@@ -33,10 +33,11 @@ jobs:
           mkdir -p _site
           cp index.html app.js styles.css _site/
           cp -R assets _site/assets
+          cp -R js _site/js
           touch _site/.nojekyll
 
           export VERSION="${GITHUB_SHA::12}"
-          perl -0pi -e 's#\./styles\.css#./styles.css?v=$ENV{VERSION}#g; s#\./app\.js#./app.js?v=$ENV{VERSION}#g' _site/index.html
+          perl -0pi -e 's#\./styles\.css#./styles.css?v=$ENV{VERSION}#g; s#\./([^"]+\.js)#./$1?v=$ENV{VERSION}#g' _site/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

@@ -1,543 +1,39 @@
-const app = document.querySelector("#app");
-
-const SUPABASE_URL = "https://brossrtbenywacrfxkty.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyb3NzcnRiZW55d2FjcmZ4a3R5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5NTcwNTgsImV4cCI6MjA5OTUzMzA1OH0.JmYDHw1oTa52noohGHCk2gbGTkriA6iZ2G_PqHOJkAM";
-const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const SUPABASE_TIMEOUT_MS = 12000;
-
-const DEFAULT_PROPERTY = {
-  name: "Hacienda San Julián",
-  location: "Lorca, Murcia",
-  notes: "Alojamiento de San Julián.",
-  map_url: null,
-  route_video_url: null,
-};
-
-const property = {
-  name: "",
-  location: "",
-  bookingRef: "",
-  stayToken: "",
-  tokenCreatedAt: "",
-  tokenExpiresAt: "",
-  checkIn: "",
-  checkOut: "",
-  notes: "",
-};
-
-const guests = [];
-
-const state = {
-  view: "host",
-  tab: "register",
-  openGuestId: null,
-  activeReservationId: null,
-  showReservationForm: false,
-  loading: true,
-  authUser: null,
-  authError: "",
-  dataError: "",
-  propertyId: null,
-};
-
-const reservations = [];
-
-window.state = state;
-window.guests = guests;
-window.reservations = reservations;
-
-function withSupabaseTimeout(request, action, timeoutMs = SUPABASE_TIMEOUT_MS) {
-  let timeoutId;
-  const timeout = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(`La base de datos no respondió a tiempo al ${action}. Revisa la conexión e inténtalo de nuevo.`));
-    }, timeoutMs);
-  });
-  return Promise.race([request, timeout]).finally(() => clearTimeout(timeoutId));
-}
-
-const faqs = [
-  ["Hora de entrada", "La entrada está disponible desde las 16:00."],
-  ["Hora de salida", "La salida es antes de las 11:00. Dejad las llaves según las instrucciones del anfitrión."],
-  ["Zonas privadas", "Las zonas privadas del alojamiento quedan indicadas por el anfitrión antes de la llegada."],
-  ["Contacto", "Para cualquier cosa, contactad con el anfitrión por el canal acordado."],
-];
-
-const accessLinks = {
-  routeVideo: "#",
-  map: "#",
-};
-
-const accessSections = [
-  {
-    title: "Ubicación y entrada al campo",
-    items: [
-      {
-        label: "Entrada al camino",
-        text: "Seguid las indicaciones compartidas por el anfitrión para llegar al acceso principal.",
-      },
-      {
-        label: "Coordenadas",
-        text: "Coordenadas disponibles en la reserva real.",
-      },
-      {
-        label: "Dirección de la casa",
-        text: "Dirección disponible en la reserva real.",
-      },
-    ],
-  },
-  {
-    title: "Recorrido hasta la casa",
-    items: [
-      {
-        label: "Primer tramo",
-        text: "Seguid el recorrido indicado en el enlace de acceso.",
-      },
-      {
-        label: "Ultimo giro",
-        text: "Confirmad el último tramo con el anfitrión si tenéis dudas.",
-      },
-      {
-        label: "Llegada",
-        text: "Aparcad en la zona indicada para huéspedes.",
-      },
-    ],
-  },
-  {
-    title: "Al llegar",
-    items: [
-      {
-        label: "Aparcamiento",
-        text: "Usad la zona de aparcamiento indicada por el anfitrión.",
-      },
-      {
-        label: "Puerta de acceso",
-        text: "Entrad por la puerta indicada en las instrucciones de la reserva.",
-      },
-      {
-        label: "Llaves interiores",
-        text: "Revisad las instrucciones de llaves antes de salir del alojamiento.",
-      },
-    ],
-  },
-  {
-    title: "Durante la estancia",
-    items: [
-      {
-        label: "Jardin",
-        text: "Usad solo las zonas exteriores habilitadas para huéspedes.",
-      },
-      {
-        label: "Cuidado exterior",
-        text: "Cuidad las zonas comunes y dejadlas como las encontrasteis.",
-      },
-      {
-        label: "Ropa de casa",
-        text: "Las camas quedan hechas y encima encontraréis un juego de toallas para cada persona y otra toalla para la piscina.",
-      },
-      {
-        label: "Zonas disponibles",
-        text: "Las zonas no disponibles estarán cerradas o señalizadas.",
-      },
-    ],
-  },
-  {
-    title: "Salida y contacto",
-    items: [
-      {
-        label: "Entrega de llaves",
-        text: "Al salir, dejad las llaves según las instrucciones del anfitrión.",
-      },
-      {
-        label: "Telefono y WhatsApp",
-        text: "Para cualquier cosa, usad el contacto compartido en la reserva real.",
-      },
-    ],
-  },
-];
-
-const hostGuestFields = [
-  ["Nombre completo", "fullName"],
-  ["Sexo", "sex"],
-  ["Documento", "documentLabel"],
-  ["Nacionalidad", "nationality"],
-  ["Fecha de nacimiento", "birthDate"],
-  ["Residencia habitual", "address"],
-  ["Teléfono móvil", "phone"],
-  ["Email", "email"],
-];
-
-function formatDate(date) {
-  if (!date) return "";
-  return new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date));
-}
-
-function formatShortDate(date) {
-  if (!date) return "";
-  return new Intl.DateTimeFormat("es-ES", {
-    day: "2-digit",
-    month: "short",
-  }).format(new Date(date));
-}
-
-function formatDateTimeInput(date) {
-  if (!date) return "";
-  const parsed = new Date(date);
-  const timezoneOffset = parsed.getTimezoneOffset() * 60000;
-  return new Date(parsed.getTime() - timezoneOffset).toISOString().slice(0, 16);
-}
-
-function padDatePart(value) {
-  return String(value).padStart(2, "0");
-}
-
-function buildBirthDate(data) {
-  const day = Number(data.get("birthDay"));
-  const month = Number(data.get("birthMonth"));
-  const year = Number(data.get("birthYear"));
-  if (!day || !month || !year) return "";
-  const date = new Date(year, month - 1, day);
-  const isValid =
-    date.getFullYear() === year &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day &&
-    date <= new Date();
-  return isValid ? `${year}-${padDatePart(month)}-${padDatePart(day)}` : "";
-}
-
-function yearOptions() {
-  const currentYear = new Date().getFullYear();
-  const years = [];
-  for (let year = currentYear; year >= currentYear - 110; year -= 1) {
-    years.push(`<option value="${year}">${year}</option>`);
-  }
-  return years.join("");
-}
-
-function generateToken() {
-  const bytes = new Uint8Array(8);
-  if (window.crypto?.getRandomValues) {
-    window.crypto.getRandomValues(bytes);
-  } else {
-    bytes.forEach((_, index) => {
-      bytes[index] = Math.floor(Math.random() * 256);
-    });
-  }
-  const suffix = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `hsj_${Date.now().toString(36)}_${suffix}`;
-}
-
-function generateReservationId() {
-  return `res_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function buildBookingRef(checkIn, checkOut, guestCount, groupName = "") {
-  const label = groupName.trim() || "Reserva";
-  return `${label} · ${formatShortDate(checkIn)} - ${formatShortDate(checkOut)} · ${guestCount} huesp.`;
-}
-
-function escapeHtml(value = "") {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function guestLink(tab = "register") {
-  const baseUrl = window.location.href.split("#")[0];
-  return property.stayToken ? `${baseUrl}#guest/${tab}/${property.stayToken}` : baseUrl;
-}
-
-function createGuest(id) {
-  return {
-    id,
-    label: `Huésped ${id}`,
-    complete: false,
-    name: "",
-    documentType: "",
-    details: null,
-  };
-}
-
-function cloneGuests(items = guests) {
-  return items.map((guest) => ({
-    ...guest,
-    details: guest.details ? { ...guest.details } : null,
-  }));
-}
-
-function hasBackend() {
-  return Boolean(supabaseClient);
-}
-
-function bookingRefForReservation(reservation) {
-  return buildBookingRef(reservation.checkIn, reservation.checkOut, reservation.guests.length, reservation.groupName);
-}
-
-function defaultDateTimeInput(daysFromNow = 0, hour = 16) {
-  const date = new Date();
-  date.setDate(date.getDate() + daysFromNow);
-  date.setHours(hour, 0, 0, 0);
-  return formatDateTimeInput(date.toISOString());
-}
-
-function mapGuestFromRow(row) {
-  const fullName = row.full_name || `Huésped ${row.position}`;
-  const documentType = row.document_type || "";
-  const details = row.complete
-    ? {
-        name: row.name || "",
-        surname: row.surname || "",
-        secondSurname: row.second_surname || "",
-        fullName,
-        sex: row.sex || "",
-        documentType,
-        documentNumber: row.document_number || "",
-        documentLabel: `${documentType || "Documento"}${row.document_number ? ` · ${row.document_number}` : ""}`,
-        nationality: row.nationality || "",
-        birthDate: row.birth_date || "",
-        address: row.address || "",
-        phone: row.phone || "",
-        email: row.email || "",
-      }
-    : null;
-
-  return {
-    id: row.position,
-    rowId: row.id,
-    label: `Huésped ${row.position}`,
-    complete: Boolean(row.complete),
-    name: row.complete ? fullName : "",
-    documentType,
-    details,
-  };
-}
-
-function mapReservationFromRow(row) {
-  const mappedGuests = (row.guests || []).sort((a, b) => a.position - b.position).map(mapGuestFromRow);
-  const reservation = {
-    id: row.id,
-    groupName: row.group_name || "",
-    stayToken: row.public_slug,
-    tokenCreatedAt: row.created_at,
-    tokenExpiresAt: row.check_out,
-    checkIn: row.check_in,
-    checkOut: row.check_out,
-    guests: mappedGuests,
-  };
-  reservation.bookingRef = bookingRefForReservation(reservation);
-  return reservation;
-}
-
-function mapPublicReservation(payload) {
-  const reservationData = payload.reservation;
-  const mappedGuests = (payload.guests || []).map((guest) => ({
-    id: guest.position,
-    rowId: guest.id,
-    label: `Huésped ${guest.position}`,
-    complete: Boolean(guest.complete),
-    name: guest.complete ? guest.fullName : "",
-    documentType: guest.documentType || "",
-    details: null,
-  }));
-  const reservation = {
-    id: reservationData.id,
-    groupName: reservationData.groupName || "",
-    stayToken: reservationData.publicSlug,
-    tokenCreatedAt: reservationData.checkIn,
-    tokenExpiresAt: reservationData.checkOut,
-    checkIn: reservationData.checkIn,
-    checkOut: reservationData.checkOut,
-    guests: mappedGuests,
-  };
-  reservation.bookingRef = bookingRefForReservation(reservation);
-  return {
-    property: payload.property,
-    reservation,
-  };
-}
-
-function applyPropertyFromRow(row) {
-  if (!row) return;
-  property.name = row.name || "";
-  property.location = row.location || "";
-  property.notes = row.notes || "";
-  accessLinks.map = row.map_url || row.mapUrl || accessLinks.map;
-  accessLinks.routeVideo = row.route_video_url || row.routeVideoUrl || accessLinks.routeVideo;
-  state.propertyId = row.id || state.propertyId;
-}
-
-function clearActiveReservation() {
-  property.bookingRef = "";
-  property.stayToken = "";
-  property.tokenCreatedAt = "";
-  property.tokenExpiresAt = "";
-  property.checkIn = "";
-  property.checkOut = "";
-  guests.splice(0, guests.length);
-  state.activeReservationId = null;
-  state.openGuestId = null;
-}
-
-function activeReservation() {
-  return reservations.find((reservation) => reservation.id === state.activeReservationId);
-}
-
-function syncActiveReservation() {
-  const reservation = activeReservation();
-  if (!reservation) return;
-  reservation.bookingRef = property.bookingRef;
-  reservation.stayToken = property.stayToken;
-  reservation.tokenCreatedAt = property.tokenCreatedAt;
-  reservation.tokenExpiresAt = property.tokenExpiresAt;
-  reservation.checkIn = property.checkIn;
-  reservation.checkOut = property.checkOut;
-  reservation.guests = cloneGuests();
-}
-
-function applyReservation(reservation) {
-  property.bookingRef = reservation.bookingRef;
-  property.stayToken = reservation.stayToken;
-  property.tokenCreatedAt = reservation.tokenCreatedAt;
-  property.tokenExpiresAt = reservation.tokenExpiresAt;
-  property.checkIn = reservation.checkIn;
-  property.checkOut = reservation.checkOut;
-  guests.splice(0, guests.length, ...cloneGuests(reservation.guests));
-  state.activeReservationId = reservation.id;
-  const nextPending = guests.find((guest) => !guest.complete);
-  state.openGuestId = nextPending ? nextPending.id : null;
-}
-
-async function ensureHostProperty(existingProperties = []) {
-  const currentProperty = existingProperties[0];
-  if (currentProperty) return currentProperty;
-
-  const { data, error } = await withSupabaseTimeout(
-    supabaseClient
-      .from("properties")
-      .insert({
-        owner_id: state.authUser.id,
-        ...DEFAULT_PROPERTY,
-      })
-      .select("*")
-      .single(),
-    "crear el alojamiento",
-  );
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
-async function loadHostData() {
-  if (!hasBackend() || !state.authUser) return;
-  state.loading = true;
-  state.dataError = "";
-  render();
-
-  try {
-    const { data: properties, error: propertyError } = await withSupabaseTimeout(
-      supabaseClient
-        .from("properties")
-        .select("*")
-        .order("created_at", { ascending: true })
-        .limit(1),
-      "cargar el alojamiento",
-    );
-    if (propertyError) throw propertyError;
-
-    let currentProperty;
-    currentProperty = await ensureHostProperty(properties || []);
-
-    applyPropertyFromRow(currentProperty);
-
-    if (!currentProperty) {
-      reservations.splice(0, reservations.length);
-      clearActiveReservation();
-      state.loading = false;
-      render();
-      return;
-    }
-
-    const { data, error } = await withSupabaseTimeout(
-      supabaseClient
-        .from("reservations")
-        .select("*, guests(*)")
-        .eq("property_id", currentProperty.id)
-        .order("check_in", { ascending: true }),
-      "cargar las reservas",
-    );
-    if (error) throw error;
-
-    reservations.splice(0, reservations.length, ...(data || []).map(mapReservationFromRow));
-    if (reservations.length > 0) {
-      const active = reservations.find((reservation) => reservation.id === state.activeReservationId) || reservations[0];
-      applyReservation(active);
-    } else {
-      clearActiveReservation();
-    }
-    state.loading = false;
-    render();
-  } catch (error) {
-    state.dataError = error.message;
-    state.loading = false;
-    render();
-  }
-}
-
-async function loadPublicReservation(publicSlug, options = {}) {
-  const { showLoading = true, showError = true } = options;
-  if (!hasBackend() || !publicSlug) return false;
-  if (showLoading) state.loading = true;
-  state.dataError = "";
-  if (showLoading) render();
-
-  try {
-    const { data, error } = await withSupabaseTimeout(
-      supabaseClient.rpc("get_public_reservation", {
-        input_public_slug: publicSlug,
-      }),
-      "cargar la reserva",
-    );
-    if (error || !data) throw new Error(error?.message || "No se ha encontrado esta reserva.");
-
-    const mapped = mapPublicReservation(data);
-    applyPropertyFromRow(mapped.property);
-    const index = reservations.findIndex((reservation) => reservation.id === mapped.reservation.id);
-    if (index >= 0) {
-      reservations[index] = mapped.reservation;
-    } else {
-      reservations.splice(0, reservations.length, mapped.reservation);
-    }
-    applyReservation(mapped.reservation);
-    state.loading = false;
-    if (showLoading) render();
-    return true;
-  } catch (error) {
-    if (showError) state.dataError = error.message;
-    state.loading = false;
-    if (showLoading || showError) render();
-    return false;
-  }
-}
-
-async function refreshActivePublicReservation() {
-  const reservation = activeReservation();
-  if (reservation?.stayToken) {
-    return loadPublicReservation(reservation.stayToken, { showLoading: false, showError: false });
-  }
-  return false;
-}
+const {
+  accessLinks,
+  accessSections,
+  app,
+  faqs,
+  guests,
+  hostGuestFields,
+  property,
+  reservations,
+  setRenderer,
+  state,
+  supabaseClient,
+  withSupabaseTimeout,
+} = window.AppState;
+const {
+  buildBirthDate,
+  buildBookingRef,
+  defaultDateTimeInput,
+  escapeHtml,
+  formatDate,
+  formatDateTimeInput,
+  generateReservationId,
+  generateToken,
+  yearOptions,
+} = window.AppUtils;
+const {
+  activeReservation,
+  applyReservation,
+  clearActiveReservation,
+  createGuest,
+  hasBackend,
+  loadHostData,
+  loadPublicReservation,
+  refreshActivePublicReservation,
+  syncActiveReservation,
+} = window.AppData;
 
 function switchReservation(id) {
   syncActiveReservation();
@@ -658,6 +154,11 @@ function route(view, tab = state.tab) {
   state.tab = tab;
   window.location.hash = view === "guest" ? `guest/${tab}/${property.stayToken}` : "host";
   render();
+}
+
+function guestLink(tab = "register") {
+  const baseUrl = window.location.href.split("#")[0];
+  return property.stayToken ? `${baseUrl}#guest/${tab}/${property.stayToken}` : baseUrl;
 }
 
 function openGuestLink(tab = "register") {
@@ -1377,6 +878,8 @@ window.toggleReservationForm = toggleReservationForm;
 window.loginHost = loginHost;
 window.logoutHost = logoutHost;
 window.loadHostData = loadHostData;
+
+setRenderer(render);
 
 window.addEventListener("hashchange", async () => {
   try {
